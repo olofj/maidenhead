@@ -1,5 +1,16 @@
-extern crate simple_error;
-use self::simple_error::SimpleError;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum MHError {
+    #[error("Invalid grid format `{0}`")]
+    InvalidGrid(String),
+    #[error("Invalid grid length {0}, only 4/6/8/10 supported")]
+    InvalidGridLength(usize),
+    #[error("Invalid Longitude/Latitude: `{0}`/`{1}`")]
+    InvalidLongLat(f64, f64),
+    #[error("unknown error when generating grid string")]
+    Unknown,
+}
 
 // Grid squares are string representations of the latitude and longitude. A good introduction to how to calculate them is in:
 // http://www.w8bh.net/grid_squares.pdf
@@ -32,7 +43,7 @@ static LAT_SESQ: f64 = 0.625 / 60.0 / 60.0;
 static LONG_MULT: [f64; 5] = [LONG_F, LONG_SQ, LONG_SSQ, LONG_ESQ, LONG_SESQ];
 static LAT_MULT: [f64; 5] = [LAT_F, LAT_SQ, LAT_SSQ, LAT_ESQ, LAT_SESQ];
 
-pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), SimpleError> {
+pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), MHError> {
     // Validate alpha/digit format
     // FIXME: Actual values should be A-R 0-9 a-x 0-9 A-X
     let d = |a: char| a.is_ascii_digit();
@@ -46,13 +57,13 @@ pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), SimpleError> {
 
     // If any of them are false, we've got an invalid grid string
     if check.iter().filter(|b| !*b).count() != 0 {
-        return Err(SimpleError::new("Invalid grid format"));
+        return Err(MHError::InvalidGrid(grid.to_string()));
     }
 
     // Also make sure the length is even (and not 2)
     match grid.len() {
         4 | 6 | 8 | 10 => {}
-        _ => return Err(SimpleError::new("Invalid grid length")),
+        l => return Err(MHError::InvalidGridLength(l)),
     }
 
     // Now it's just a matter of calculating the offsets from the grid
@@ -88,17 +99,17 @@ pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), SimpleError> {
     Ok((long - LONG_OFFSET, lat - LAT_OFFSET))
 }
 
-pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, SimpleError> {
+pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, MHError> {
     let charoff = |base: char, off: u32| std::char::from_u32(base as u32 + off);
 
     // It only makes sense to have 4+ even number of characters in a grid square
     match precision {
-        4 | 6 | 8 | 10 => {}
-        _ => return Err(SimpleError::new("Invalid grid length {precision}")),
+        4 | 6 | 8 | 10 => {},
+        p => return Err(MHError::InvalidGridLength(p)),
     }
 
     if long > 180.0 || long < -180.0 || lat < -180.0 || lat > 180.0 {
-        return Err(SimpleError::new("Invalid long/lat"));
+        return Err(MHError::InvalidLongLat(long, lat));
     }
 
     // Do the math to calculate each position, per the w8bh website
@@ -125,7 +136,7 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
         .collect();
     match grid {
         Some(g) => Ok(g),
-        None => Err(SimpleError::new("Failed to generate grid")),
+        None => Err(MHError::Unknown),
     }
 }
 
@@ -137,7 +148,7 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
 // where:
 //  φ is latitude, λ is longitude, R is earth’s radius (mean radius = 6,371km);
 
-pub fn grid_distance(from: &str, to: &str) -> Result<f64, SimpleError> {
+pub fn grid_distance(from: &str, to: &str) -> Result<f64, MHError> {
     static RADIUS: f64 = 6371.0;
     let (from_long, from_lat) = grid_to_longlat(from)?;
     let (to_long, to_lat) = grid_to_longlat(to)?;
