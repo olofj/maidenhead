@@ -104,7 +104,7 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
 
     // It only makes sense to have 4+ even number of characters in a grid square
     match precision {
-        4 | 6 | 8 | 10 => {},
+        4 | 6 | 8 | 10 => {}
         p => return Err(MHError::InvalidGridLength(p)),
     }
 
@@ -257,8 +257,8 @@ mod tests {
 
         // Make sure it's within the margin of error of the smallest field
         let (long, lat) = ll.unwrap();
-        assert_delta!(long, TEST_LONG, LONG_MULT[n/2-1]);
-        assert_delta!(lat, TEST_LAT, LAT_MULT[n/2-1]);
+        assert_delta!(long, TEST_LONG, LONG_MULT[n / 2 - 1]);
+        assert_delta!(lat, TEST_LAT, LAT_MULT[n / 2 - 1]);
 
         // Let's convert it back to grid and compare
         let grid = longlat_to_grid(long, lat, n).unwrap();
@@ -310,7 +310,11 @@ mod tests {
         let dist = grid_distance("CM87um", "KP04ow").unwrap();
         let bear = grid_bearing("CM87um", "KP04ow").unwrap();
         println!("Distance: {} Bearing: {}", dist, bear);
-        println!("from: {:?} To: {:?}", grid_to_longlat("CM87um"), grid_to_longlat("KP04ow"));
+        println!(
+            "from: {:?} To: {:?}",
+            grid_to_longlat("CM87um"),
+            grid_to_longlat("KP04ow")
+        );
         assert_delta!(dist, 8189.0, 1.0);
         assert_delta!(bear, 15.224, 0.001);
     }
