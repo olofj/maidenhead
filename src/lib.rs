@@ -166,7 +166,7 @@ pub fn grid_dist_bearing(from: &str, to: &str) -> Result<(f64, f64), MHError> {
     let c: f64 = 2.0 * (a.sqrt()).atan2((1.0 - a).sqrt());
 
     let dist = RADIUS * c;
-    let bearing = Δλ.sin() * φ2.cos().atan2(φ1.cos() * φ2.sin() - φ1.sin() * φ2.cos() * Δλ.cos());
+    let bearing = (Δλ.sin() * φ2.cos()).atan2(φ1.cos() * φ2.sin() - φ1.sin() * φ2.cos() * Δλ.cos());
     let bearing = (bearing.to_degrees() + 360.0) % 360.0;
 
     Ok((dist, bearing))
@@ -307,10 +307,11 @@ mod tests {
 
     #[test]
     fn test_distance_home() {
-        let dist = grid_distance("CM97um", "KP04ow").unwrap();
-        let bear = grid_bearing("CM97um", "KP04ow").unwrap();
+        let dist = grid_distance("CM87um", "KP04ow").unwrap();
+        let bear = grid_bearing("CM87um", "KP04ow").unwrap();
         println!("Distance: {} Bearing: {}", dist, bear);
-        assert_delta!(dist, 8141.224, 0.001);
-        assert_delta!(bear, 16.0, 0.7);
+        println!("from: {:?} To: {:?}", grid_to_longlat("CM87um"), grid_to_longlat("KP04ow"));
+        assert_delta!(dist, 8189.0, 1.0);
+        assert_delta!(bear, 15.224, 0.001);
     }
 }
