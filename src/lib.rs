@@ -1,11 +1,9 @@
 extern crate simple_error;
 use self::simple_error::SimpleError;
 
-
-
-// Grid squares are string representations of the latitude and longitude. A good introduction to how to calculate them is in: 
+// Grid squares are string representations of the latitude and longitude. A good introduction to how to calculate them is in:
 // http://www.w8bh.net/grid_squares.pdf
-// 
+//
 // The format is: FFSSssEEee
 // Field / Square / Subsquare / Extended Square / Superextended Square
 // Each covering for long/lat:
@@ -34,33 +32,50 @@ static LAT_SESQ: f64 = 0.625 / 60.0 / 60.0;
 static LONG_MULT: [f64; 5] = [LONG_F, LONG_SQ, LONG_SSQ, LONG_ESQ, LONG_SESQ];
 static LAT_MULT: [f64; 5] = [LAT_F, LAT_SQ, LAT_SSQ, LAT_ESQ, LAT_SESQ];
 
-pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), SimpleError>
-{
+pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), SimpleError> {
     // Validate alpha/digit format
     // FIXME: Actual values should be A-R 0-9 a-x 0-9 A-X
-    let d = | a: char | a.is_ascii_digit();
-    let l = | a: char | a.is_ascii_alphabetic();
+    let d = |a: char| a.is_ascii_digit();
+    let l = |a: char| a.is_ascii_alphabetic();
     let checks = [l, l, d, d, l, l, d, d, l, l];
-    let check = grid.chars().zip(checks).map(|(c, lmb)| lmb(c)).collect::<Vec<bool>>();
+    let check = grid
+        .chars()
+        .zip(checks)
+        .map(|(c, lmb)| lmb(c))
+        .collect::<Vec<bool>>();
 
     // If any of them are false, we've got an invalid grid string
-    if check.iter().filter(|b| ! *b).count() != 0 {
+    if check.iter().filter(|b| !*b).count() != 0 {
         return Err(SimpleError::new("Invalid grid format"));
     }
 
     // Also make sure the length is even (and not 2)
     match grid.len() {
-        4 | 6 | 8 | 10 => {},
-        _ => return Err(SimpleError::new("Invalid grid length")), 
+        4 | 6 | 8 | 10 => {}
+        _ => return Err(SimpleError::new("Invalid grid length")),
     }
 
     // Now it's just a matter of calculating the offsets from the grid
-    let vals: Vec<u32> = "AA00AA00AA".chars().zip(grid.chars()).map(
-        | (t, c) | (c.to_ascii_uppercase() as u32) - (t as u32)).collect();
+    let vals: Vec<u32> = "AA00AA00AA"
+        .chars()
+        .zip(grid.chars())
+        .map(|(t, c)| (c.to_ascii_uppercase() as u32) - (t as u32))
+        .collect();
 
     // And multiplying each of them with their per-unit value
-    let long: f64 = vals.iter().step_by(2).zip(LONG_MULT).map(| (&v, m) | v as f64 * m ).sum();
-    let lat: f64 = vals.iter().skip(1).step_by(2).zip(LAT_MULT).map(| (&v, m) | v as f64 * m ).sum();
+    let long: f64 = vals
+        .iter()
+        .step_by(2)
+        .zip(LONG_MULT)
+        .map(|(&v, m)| v as f64 * m)
+        .sum();
+    let lat: f64 = vals
+        .iter()
+        .skip(1)
+        .step_by(2)
+        .zip(LAT_MULT)
+        .map(|(&v, m)| v as f64 * m)
+        .sum();
 
     // Move the returned value into the middle of the precision given.
     // This avoids imprecision due to rounding if doing grid->longlat->grid
@@ -73,13 +88,12 @@ pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), SimpleError>
     Ok((long - LONG_OFFSET, lat - LAT_OFFSET))
 }
 
-pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, SimpleError>
-{
-    let charoff = | base: char, off: u32 | std::char::from_u32(base as u32 + off);
+pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, SimpleError> {
+    let charoff = |base: char, off: u32| std::char::from_u32(base as u32 + off);
 
     // It only makes sense to have 4+ even number of characters in a grid square
     match precision {
-        4 | 6 | 8 | 10 => {},
+        4 | 6 | 8 | 10 => {}
         _ => return Err(SimpleError::new("Invalid grid length {precision}")),
     }
 
@@ -104,11 +118,14 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
 
     vals.truncate(precision);
 
-    let grid: Option<String> = "AA00aa00AA".chars().zip(vals).map(
-        | (b, o) | charoff(b, o as u32) ).collect();
+    let grid: Option<String> = "AA00aa00AA"
+        .chars()
+        .zip(vals)
+        .map(|(b, o)| charoff(b, o as u32))
+        .collect();
     match grid {
         Some(g) => Ok(g),
-        None => Err(SimpleError::new("Failed to generate grid"))
+        None => Err(SimpleError::new("Failed to generate grid")),
     }
 }
 
@@ -132,12 +149,11 @@ pub fn grid_distance(from: &str, to: &str) -> Result<f64, SimpleError> {
     let φ1 = from_lat.to_radians();
     let φ2 = to_lat.to_radians();
 
-    let a: f64 = (Δφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (Δλ/2.0).sin().powi(2);
-    let c: f64 = 2.0 * (a.sqrt()).atan2((1.0-a).sqrt());
+    let a: f64 = (Δφ / 2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (Δλ / 2.0).sin().powi(2);
+    let c: f64 = 2.0 * (a.sqrt()).atan2((1.0 - a).sqrt());
 
     Ok(RADIUS * c)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -146,7 +162,9 @@ mod tests {
     // From https://stackoverflow.com/questions/30856285/assert-eq-with-floating-point-numbers-and-delta
     macro_rules! assert_delta {
         ($x:expr, $y:expr, $d:expr) => {
-            if !($x - $y < $d || $y - $x < $d) { panic!(); }
+            if !($x - $y < $d || $y - $x < $d) {
+                panic!();
+            }
         };
     }
 
@@ -164,16 +182,24 @@ mod tests {
     }
 
     #[test]
-    fn precision_10() { precision_n(10); }
+    fn precision_10() {
+        precision_n(10);
+    }
 
     #[test]
-    fn precision_8() { precision_n(8); }
+    fn precision_8() {
+        precision_n(8);
+    }
 
     #[test]
-    fn precision_6() { precision_n(6); }
+    fn precision_6() {
+        precision_n(6);
+    }
 
     #[test]
-    fn precision_4() { precision_n(4); }
+    fn precision_4() {
+        precision_n(4);
+    }
 
     #[test]
     fn precision_inval() {
@@ -211,16 +237,24 @@ mod tests {
     }
 
     #[test]
-    fn longlat10() { longlat_n(10); }
+    fn longlat10() {
+        longlat_n(10);
+    }
 
     #[test]
-    fn longlat8() { longlat_n(8); }
+    fn longlat8() {
+        longlat_n(8);
+    }
 
     #[test]
-    fn longlat6() { longlat_n(6); }
+    fn longlat6() {
+        longlat_n(6);
+    }
 
     #[test]
-    fn longlat4() { longlat_n(4); }
+    fn longlat4() {
+        longlat_n(4);
+    }
 
     #[test]
     fn longlat_invalid() {
@@ -233,7 +267,7 @@ mod tests {
         let ret = grid_to_longlat("AA00AA00AA00");
         assert!(ret.is_err());
         let ret = grid_to_longlat("AA00AA00AA");
-        assert!(! ret.is_err());
+        assert!(!ret.is_err());
     }
 
     #[test]
