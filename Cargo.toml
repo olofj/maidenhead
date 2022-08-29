@@ -2,6 +2,12 @@
 name = "maidenhead"
 version = "0.1.0"
 edition = "2021"
+authors = ["Olof Johansson <olof@lixom.net>"]
+description = "A simple package to convert to/from maidenhead squares to latitude/longitude"
+repository = "https://github.com/olofj/maidenhead"
+license = "Apache-2.0"
+keywords = ["hamradio"]
+exclude = ["/.vscode"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
