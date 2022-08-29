@@ -112,6 +112,32 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
     }
 }
 
+// Calculate the distance between two grids, using the haversine
+// formula:
+// a = sin²(Δφ/2) + cos φ1 ⋅ cos φ2 ⋅ sin²(Δλ/2)
+// c = 2 ⋅ atan2( √a, √(1−a) )
+// d = R ⋅ c
+// where:
+//  φ is latitude, λ is longitude, R is earth’s radius (mean radius = 6,371km);
+
+pub fn grid_distance(from: &str, to: &str) -> Result<f64, SimpleError> {
+    static RADIUS: f64 = 6371.0;
+    let (from_long, from_lat) = grid_to_longlat(from)?;
+    let (to_long, to_lat) = grid_to_longlat(to)?;
+
+    #[allow(non_snake_case)]
+    let Δλ = (to_long - from_long).to_radians();
+    #[allow(non_snake_case)]
+    let Δφ = (to_lat - from_lat).to_radians();
+    let φ1 = from_lat.to_radians();
+    let φ2 = to_lat.to_radians();
+
+    let a: f64 = (Δφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (Δλ/2.0).sin().powi(2);
+    let c: f64 = 2.0 * (a.sqrt()).atan2((1.0-a).sqrt());
+
+    Ok(RADIUS * c)
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -208,5 +234,17 @@ mod tests {
         assert!(ret.is_err());
         let ret = grid_to_longlat("AA00AA00AA");
         assert!(! ret.is_err());
+    }
+
+    #[test]
+    fn test_distance_null() {
+        let dist = grid_distance(TEST_GRID, TEST_GRID).unwrap();
+        assert_eq!(dist, 0.0);
+    }
+
+    #[test]
+    fn test_distance_home() {
+        let dist = grid_distance("CM97um", "KP04ow").unwrap();
+        assert_delta!(dist, 8141.224, 0.001);
     }
 }
