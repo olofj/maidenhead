@@ -147,8 +147,10 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
 // d = R ⋅ c
 // where:
 //  φ is latitude, λ is longitude, R is earth’s radius (mean radius = 6,371km);
+//  Bearing:
+//  θ = atan2( sin Δλ ⋅ cos φ2 , cos φ1 ⋅ sin φ2 − sin φ1 ⋅ cos φ2 ⋅ cos Δλ )
 
-pub fn grid_distance(from: &str, to: &str) -> Result<f64, MHError> {
+pub fn grid_dist_bearing(from: &str, to: &str) -> Result<(f64, f64), MHError> {
     static RADIUS: f64 = 6371.0;
     let (from_long, from_lat) = grid_to_longlat(from)?;
     let (to_long, to_lat) = grid_to_longlat(to)?;
@@ -163,7 +165,21 @@ pub fn grid_distance(from: &str, to: &str) -> Result<f64, MHError> {
     let a: f64 = (Δφ / 2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (Δλ / 2.0).sin().powi(2);
     let c: f64 = 2.0 * (a.sqrt()).atan2((1.0 - a).sqrt());
 
-    Ok(RADIUS * c)
+    let dist = RADIUS * c;
+    let bearing = Δλ.sin() * φ2.cos().atan2(φ1.cos() * φ2.sin() - φ1.sin() * φ2.cos() * Δλ.cos());
+    let bearing = (bearing.to_degrees() + 360.0) % 360.0;
+
+    Ok((dist, bearing))
+}
+
+pub fn grid_distance(from: &str, to: &str) -> Result<f64, MHError> {
+    let (dist, _) = grid_dist_bearing(from, to)?;
+    Ok(dist)
+}
+
+pub fn grid_bearing(from: &str, to: &str) -> Result<f64, MHError> {
+    let (_, bearing) = grid_dist_bearing(from, to)?;
+    Ok(bearing)
 }
 
 #[cfg(test)]
@@ -173,7 +189,9 @@ mod tests {
     // From https://stackoverflow.com/questions/30856285/assert-eq-with-floating-point-numbers-and-delta
     macro_rules! assert_delta {
         ($x:expr, $y:expr, $d:expr) => {
-            if !($x - $y < $d || $y - $x < $d) {
+            let x = $x as f64;
+            let y = $y as f64;
+            if !((x - y).abs() < $d || (y - x).abs() < $d) {
                 panic!();
             }
         };
@@ -239,8 +257,8 @@ mod tests {
 
         // Make sure it's within the margin of error of the smallest field
         let (long, lat) = ll.unwrap();
-        assert_delta!(long, TEST_LONG, LONG_MULT[4]);
-        assert_delta!(lat, TEST_LAT, LAT_MULT[4]);
+        assert_delta!(long, TEST_LONG, LONG_MULT[n/2-1]);
+        assert_delta!(lat, TEST_LAT, LAT_MULT[n/2-1]);
 
         // Let's convert it back to grid and compare
         let grid = longlat_to_grid(long, lat, n).unwrap();
@@ -290,6 +308,9 @@ mod tests {
     #[test]
     fn test_distance_home() {
         let dist = grid_distance("CM97um", "KP04ow").unwrap();
+        let bear = grid_bearing("CM97um", "KP04ow").unwrap();
+        println!("Distance: {} Bearing: {}", dist, bear);
         assert_delta!(dist, 8141.224, 0.001);
+        assert_delta!(bear, 16.0, 0.7);
     }
 }
