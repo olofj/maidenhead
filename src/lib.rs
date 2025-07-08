@@ -108,7 +108,7 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
         p => return Err(MHError::InvalidGridLength(p)),
     }
 
-    if long > 180.0 || long < -180.0 || lat < -180.0 || lat > 180.0 {
+    if !(-180.0..=180.0).contains(&long) || !(-180.0..=180.0).contains(&lat) {
         return Err(MHError::InvalidLongLat(long, lat));
     }
 
@@ -198,7 +198,7 @@ mod tests {
     }
 
     // These values come out of the PDF referenced at the top of this file
-    static TEST_GRID: &str = &"FM18lv53SL";
+    static TEST_GRID: &str = "FM18lv53SL";
     static TEST_LONG: f64 = -77.035278;
     static TEST_LAT: f64 = 38.889484;
 
@@ -206,7 +206,7 @@ mod tests {
         let grid = longlat_to_grid(TEST_LONG, TEST_LAT, n).unwrap();
         let mut check = String::from(TEST_GRID);
         check.truncate(n);
-        println!("Grid ({}): {}", n, check);
+        println!("Grid ({n}): {check}");
         assert_eq!(grid, check);
     }
 
@@ -252,8 +252,8 @@ mod tests {
         let mut grid_in = String::from(TEST_GRID);
         grid_in.truncate(n);
 
-        let ll = grid_to_longlat(&grid_in.as_str());
-        assert!(!ll.is_err());
+        let ll = grid_to_longlat(grid_in.as_str());
+        assert!(ll.is_ok());
 
         // Make sure it's within the margin of error of the smallest field
         let (long, lat) = ll.unwrap();
@@ -296,7 +296,7 @@ mod tests {
         let ret = grid_to_longlat("AA00AA00AA00");
         assert!(ret.is_err());
         let ret = grid_to_longlat("AA00AA00AA");
-        assert!(!ret.is_err());
+        assert!(ret.is_ok());
     }
 
     #[test]
@@ -309,7 +309,7 @@ mod tests {
     fn test_distance_home() {
         let dist = grid_distance("CM87um", "KP04ow").unwrap();
         let bear = grid_bearing("CM87um", "KP04ow").unwrap();
-        println!("Distance: {} Bearing: {}", dist, bear);
+        println!("Distance: {dist} Bearing: {bear}");
         println!(
             "from: {:?} To: {:?}",
             grid_to_longlat("CM87um"),
