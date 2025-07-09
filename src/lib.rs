@@ -26,37 +26,51 @@ pub enum MHError {
 // Note that the enumeration begins at south pole (so 90 degrees off on latitude) and is
 // unsigned positive, so needs to be subtracted by 180 to get +/- longitude.
 
-static LONG_OFFSET: f64 = 180.0;
-static LAT_OFFSET: f64 = 90.0;
+const LONG_OFFSET: f64 = 180.0;
+const LAT_OFFSET: f64 = 90.0;
 
-static LONG_F: f64 = 20.0;
-static LAT_F: f64 = 10.0;
-static LONG_SQ: f64 = 2.0;
-static LAT_SQ: f64 = 1.0;
-static LONG_SSQ: f64 = 5.0 / 60.0;
-static LAT_SSQ: f64 = 2.5 / 60.0;
-static LONG_ESQ: f64 = 30.0 / 60.0 / 60.0;
-static LAT_ESQ: f64 = 15.0 / 60.0 / 60.0;
-static LONG_SESQ: f64 = 1.25 / 60.0 / 60.0;
-static LAT_SESQ: f64 = 0.625 / 60.0 / 60.0;
+const LONG_F: f64 = 20.0;
+const LAT_F: f64 = 10.0;
+const LONG_SQ: f64 = 2.0;
+const LAT_SQ: f64 = 1.0;
+const LONG_SSQ: f64 = 5.0 / 60.0;
+const LAT_SSQ: f64 = 2.5 / 60.0;
+const LONG_ESQ: f64 = 30.0 / 60.0 / 60.0;
+const LAT_ESQ: f64 = 15.0 / 60.0 / 60.0;
+const LONG_SESQ: f64 = 1.25 / 60.0 / 60.0;
+const LAT_SESQ: f64 = 0.625 / 60.0 / 60.0;
 
-static LONG_MULT: [f64; 5] = [LONG_F, LONG_SQ, LONG_SSQ, LONG_ESQ, LONG_SESQ];
-static LAT_MULT: [f64; 5] = [LAT_F, LAT_SQ, LAT_SSQ, LAT_ESQ, LAT_SESQ];
+const LONG_MULT: [f64; 5] = [LONG_F, LONG_SQ, LONG_SSQ, LONG_ESQ, LONG_SESQ];
+const LAT_MULT: [f64; 5] = [LAT_F, LAT_SQ, LAT_SSQ, LAT_ESQ, LAT_SESQ];
 
+/// Converts a Maidenhead grid square string to longitude and latitude coordinates.
+///
+/// # Arguments
+/// * `grid` - A grid square string (4, 6, 8, or 10 characters)
+///
+/// # Returns
+/// A tuple of (longitude, latitude) in decimal degrees
+///
+/// # Errors
+/// Returns `MHError::InvalidGrid` if the grid format is invalid
+/// Returns `MHError::InvalidGridLength` if the grid length is not 4, 6, 8, or 10
 pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), MHError> {
     // Validate alpha/digit format
     // FIXME: Actual values should be A-R 0-9 a-x 0-9 A-X
-    let d = |a: char| a.is_ascii_digit();
-    let l = |a: char| a.is_ascii_alphabetic();
-    let checks = [l, l, d, d, l, l, d, d, l, l];
-    let check = grid
-        .chars()
-        .zip(checks)
-        .map(|(c, lmb)| lmb(c))
-        .collect::<Vec<bool>>();
+    let is_digit = |c: char| c.is_ascii_digit();
+    let is_alpha = |c: char| c.is_ascii_alphabetic();
+    let pattern = [
+        is_alpha, is_alpha, is_digit, is_digit, is_alpha, is_alpha, is_digit, is_digit, is_alpha,
+        is_alpha,
+    ];
 
-    // If any of them are false, we've got an invalid grid string
-    if check.iter().filter(|b| !*b).count() != 0 {
+    let is_valid = grid
+        .chars()
+        .zip(pattern)
+        .take(grid.len())
+        .all(|(c, check_fn)| check_fn(c));
+
+    if !is_valid {
         return Err(MHError::InvalidGrid(grid.to_string()));
     }
 
@@ -66,26 +80,27 @@ pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), MHError> {
         l => return Err(MHError::InvalidGridLength(l)),
     }
 
-    // Now it's just a matter of calculating the offsets from the grid
-    let vals: Vec<u32> = "AA00AA00AA"
+    // Calculate the offsets from the grid
+    let reference = "AA00AA00AA";
+    let vals: Vec<u32> = reference
         .chars()
         .zip(grid.chars())
-        .map(|(t, c)| (c.to_ascii_uppercase() as u32) - (t as u32))
+        .map(|(ref_char, grid_char)| (grid_char.to_ascii_uppercase() as u32) - (ref_char as u32))
         .collect();
 
-    // And multiplying each of them with their per-unit value
+    // Calculate longitude and latitude by multiplying with per-unit values
     let long: f64 = vals
         .iter()
         .step_by(2)
         .zip(LONG_MULT)
-        .map(|(&v, m)| v as f64 * m)
+        .map(|(&v, m)| f64::from(v) * m)
         .sum();
     let lat: f64 = vals
         .iter()
         .skip(1)
         .step_by(2)
         .zip(LAT_MULT)
-        .map(|(&v, m)| v as f64 * m)
+        .map(|(&v, m)| f64::from(v) * m)
         .sum();
 
     // Move the returned value into the middle of the precision given.
@@ -99,6 +114,19 @@ pub fn grid_to_longlat(grid: &str) -> Result<(f64, f64), MHError> {
     Ok((long - LONG_OFFSET, lat - LAT_OFFSET))
 }
 
+/// Converts longitude and latitude coordinates to a Maidenhead grid square string.
+///
+/// # Arguments
+/// * `long` - Longitude in decimal degrees (-180.0 to 180.0)
+/// * `lat` - Latitude in decimal degrees (-90.0 to 90.0)
+/// * `precision` - Number of characters for the grid (4, 6, 8, or 10)
+///
+/// # Returns
+/// A grid square string of the specified precision
+///
+/// # Errors
+/// Returns `MHError::InvalidLongLat` if coordinates are out of range
+/// Returns `MHError::InvalidGridLength` if precision is not 4, 6, 8, or 10
 pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, MHError> {
     let charoff = |base: char, off: u32| std::char::from_u32(base as u32 + off);
 
@@ -108,36 +136,36 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
         p => return Err(MHError::InvalidGridLength(p)),
     }
 
-    if !(-180.0..=180.0).contains(&long) || !(-180.0..=180.0).contains(&lat) {
+    if !(-180.0..=180.0).contains(&long) || !(-90.0..=90.0).contains(&lat) {
         return Err(MHError::InvalidLongLat(long, lat));
     }
 
-    // Do the math to calculate each position, per the w8bh website
-    let long = long + LONG_OFFSET;
-    let lat = lat + LAT_OFFSET;
-    let mut vals = Vec::new();
-    vals.push(long / LONG_F);
-    vals.push(lat / LAT_F);
-    vals.push(long % LONG_F / LONG_SQ);
-    vals.push(lat % LAT_F / LAT_SQ);
-    vals.push(long % LONG_SQ / LONG_SSQ);
-    vals.push(lat % LAT_SQ / LAT_SSQ);
-    vals.push(long % LONG_SSQ / LONG_ESQ);
-    vals.push(lat % LAT_SSQ / LAT_ESQ);
-    vals.push(long % LONG_ESQ / LONG_SESQ);
-    vals.push(lat % LAT_ESQ / LAT_SESQ);
+    // Calculate each position value per the w8bh website
+    let adj_long = long + LONG_OFFSET;
+    let adj_lat = lat + LAT_OFFSET;
+
+    let mut vals = Vec::with_capacity(precision);
+    vals.push(adj_long / LONG_F);
+    vals.push(adj_lat / LAT_F);
+    vals.push(adj_long % LONG_F / LONG_SQ);
+    vals.push(adj_lat % LAT_F / LAT_SQ);
+    vals.push(adj_long % LONG_SQ / LONG_SSQ);
+    vals.push(adj_lat % LAT_SQ / LAT_SSQ);
+    vals.push(adj_long % LONG_SSQ / LONG_ESQ);
+    vals.push(adj_lat % LAT_SSQ / LAT_ESQ);
+    vals.push(adj_long % LONG_ESQ / LONG_SESQ);
+    vals.push(adj_lat % LAT_ESQ / LAT_SESQ);
 
     vals.truncate(precision);
 
-    let grid: Option<String> = "AA00aa00AA"
+    let base_chars = "AA00aa00AA";
+    let grid: Option<String> = base_chars
         .chars()
         .zip(vals)
-        .map(|(b, o)| charoff(b, o as u32))
+        .map(|(base, offset)| charoff(base, offset as u32))
         .collect();
-    match grid {
-        Some(g) => Ok(g),
-        None => Err(MHError::Unknown),
-    }
+
+    grid.ok_or(MHError::Unknown)
 }
 
 // Calculate the distance between two grids, using the haversine
@@ -150,8 +178,19 @@ pub fn longlat_to_grid(long: f64, lat: f64, precision: usize) -> Result<String, 
 //  Bearing:
 //  θ = atan2( sin Δλ ⋅ cos φ2 , cos φ1 ⋅ sin φ2 − sin φ1 ⋅ cos φ2 ⋅ cos Δλ )
 
+/// Calculates the distance and bearing between two grid squares using the Haversine formula.
+///
+/// # Arguments
+/// * `from` - Source grid square string
+/// * `to` - Destination grid square string
+///
+/// # Returns
+/// A tuple of (distance in km, bearing in degrees)
+///
+/// # Errors
+/// Returns `MHError` if either grid square is invalid
 pub fn grid_dist_bearing(from: &str, to: &str) -> Result<(f64, f64), MHError> {
-    static RADIUS: f64 = 6371.0;
+    const RADIUS: f64 = 6371.0;
     let (from_long, from_lat) = grid_to_longlat(from)?;
     let (to_long, to_lat) = grid_to_longlat(to)?;
 
@@ -172,11 +211,33 @@ pub fn grid_dist_bearing(from: &str, to: &str) -> Result<(f64, f64), MHError> {
     Ok((dist, bearing))
 }
 
+/// Calculates the distance between two grid squares in kilometers.
+///
+/// # Arguments
+/// * `from` - Source grid square string
+/// * `to` - Destination grid square string
+///
+/// # Returns
+/// Distance in kilometers
+///
+/// # Errors
+/// Returns `MHError` if either grid square is invalid
 pub fn grid_distance(from: &str, to: &str) -> Result<f64, MHError> {
     let (dist, _) = grid_dist_bearing(from, to)?;
     Ok(dist)
 }
 
+/// Calculates the bearing from one grid square to another in degrees.
+///
+/// # Arguments
+/// * `from` - Source grid square string
+/// * `to` - Destination grid square string
+///
+/// # Returns
+/// Bearing in degrees (0-360)
+///
+/// # Errors
+/// Returns `MHError` if either grid square is invalid
 pub fn grid_bearing(from: &str, to: &str) -> Result<f64, MHError> {
     let (_, bearing) = grid_dist_bearing(from, to)?;
     Ok(bearing)
