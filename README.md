@@ -24,7 +24,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-maidenhead = "0.1.1"
+maidenhead = "0.2.0"
 ```
 
 ### Examples
