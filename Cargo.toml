@@ -1,6 +1,6 @@
 [package]
 name = "maidenhead"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Olof Johansson <olof@lixom.net>"]
 description = "A simple package to convert to/from maidenhead squares to latitude/longitude"
