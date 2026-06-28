@@ -27,6 +27,12 @@ Add this to your `Cargo.toml`:
 maidenhead = "0.2.1"
 ```
 
+The crate also features a struct representation to allow easier handling.
+```toml
+[dependencies]
+maidenhead = { version = "0.3", features = ["structs"] }
+```
+
 ### Examples
 
 ```rust
@@ -51,6 +57,14 @@ println!("Bearing: {:.1}°", bearing);
 // Calculate both distance and bearing
 let (distance, bearing) = grid_dist_bearing("FM18lv", "EN91")?;
 println!("Distance: {:.2} km, Bearing: {:.1}°", distance, bearing);
+
+// With feature `structs`
+let grid1 = GridSquare::new("jo30uj")?;
+println!("Grid square: {}", grid1);
+let coord1: Coordinate = grid1.clone().into();
+println!("As coordinate: {}", coord1);
+let grid2 = GridSquare::new("JO30ui")?;
+println!("{}", grid1 - grid2);
 ```
 
 ## Grid Square Format

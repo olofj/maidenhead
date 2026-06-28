@@ -1,26 +1,12 @@
-use std::error::Error;
-use std::fmt;
+mod error;
 
-#[derive(Debug)]
-pub enum MHError {
-    InvalidGrid(String),
-    InvalidGridLength(usize),
-    InvalidLongLat(f64, f64),
-    Unknown,
-}
+pub use error::MHError;
 
-impl fmt::Display for MHError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidGrid(grid) => write!(f, "Invalid grid format `{grid}`"),
-            Self::InvalidGridLength(len) => write!(f, "Invalid grid length {len}, only 4/6/8/10 supported"),
-            Self::InvalidLongLat(long, lat) => write!(f, "Invalid Longitude/Latitude: `{long}`/`{lat}`"),
-            Self::Unknown => write!(f, "unknown error when generating grid string"),
-        }
-    }
-}
+#[cfg(feature = "structs")]
+mod structs;
 
-impl Error for MHError {}
+#[cfg(feature = "structs")]
+pub use structs::{GridSquare, Vector, Coordinate};
 
 // Grid squares are string representations of the latitude and longitude. A good introduction to how to calculate them is in:
 // http://www.w8bh.net/grid_squares.pdf
