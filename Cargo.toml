@@ -1,6 +1,6 @@
 [package]
 name = "maidenhead"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["Olof Johansson <olof@lixom.net>"]
 description = "A simple package to convert to/from maidenhead squares to latitude/longitude"
@@ -10,5 +10,15 @@ keywords = ["hamradio"]
 exclude = ["/.vscode"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[example]]
+name = "example"
+path = "examples/example.rs"
+required-features = ["structs"]
+
+[features]
+structs = ["regex"]
+structs_serde = ["serde"]
 
 [dependencies]
+regex = { version ="1.12", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }

@@ -1,0 +1,6 @@
+[coverage]
+engine = "Llvm"
+features = "structs"
+
+[report]
+out = ["Html"]
